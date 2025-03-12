@@ -16,10 +16,10 @@ os.environ["MUJOCO_GL"] = "egl"
 XML_PATH = "humanoid_WSensor.xml"
 model = mujoco.MjModel.from_xml_path(XML_PATH)
 data = mujoco.MjData(model)
-renderer = mujoco.Renderer(model, 1280, 720)
+renderer = mujoco.Renderer(model, 1280, 1280)
 #sim = mujoco.MjSim(model, data)
 
-num_frames = 30
+num_frames = 20
 standing_qpos = np.array([
     0, 0, 1.25,  # torso 위치
     1, 0, 0, 0,  # torso 방향 (중립)
@@ -45,6 +45,7 @@ def get_sensor_id(model, sensor_name):
 
 imu_accel_id = get_sensor_id(model, "imu_acc")
 imu_gyro_id = get_sensor_id(model, "imu_gyro")
+watch_dist_id = get_sensor_id(model, "distance_to_watch")
 
 def get_imu_data():
     if imu_accel_id is None or imu_gyro_id is None:
@@ -52,6 +53,12 @@ def get_imu_data():
     imu_accel = data.sensordata[imu_accel_id * 3: imu_accel_id * 3 + 3]  # 가속도 (x, y, z)
     imu_gyro = data.sensordata[imu_gyro_id * 3: imu_gyro_id * 3 + 3]  # 각속도 (x, y, z)
     return imu_accel, imu_gyro
+
+def get_watch_distance():
+    if watch_dist_id is None:
+        return None
+    watch_dist = data.sensordata[watch_dist_id]
+    return watch_dist
 
 for i in range(40):
     for t in np.linspace(0, 1, num_frames):
@@ -64,8 +71,14 @@ for i in range(40):
         mujoco.mj_step(model, data)
 
         imu_accel, imu_gyro = get_imu_data()
+        dist = get_watch_distance()
 
-        print(f"Frame {t:.2f}: x = {data.qpos[0]:.2f}, y = {data.qpos[1]:.2f}, z = {data.qpos[2]:.2f}")
+        if dist is not None:
+            print(f"Frame {t:.2f}: Distance to watch = {dist:.2f}")
+        else:
+            print(f"Frame {t:.2f}: There is no watch sensor in the model.")
+
+        #print(f"Frame {t:.2f}: x = {data.qpos[0]:.2f}, y = {data.qpos[1]:.2f}, z = {data.qpos[2]:.2f}")
         if imu_accel is not None:
             print(f"Frame {t:.2f}: Accel = {imu_accel}, Gyro = {imu_gyro}")
         else:
@@ -75,7 +88,7 @@ for i in range(40):
         img = renderer.render()
         plt.imshow(img)
         plt.axis("off")
-        plt.pause(0.02)
+        plt.pause(0.005)
     
     for t in np.linspace(0, 1, num_frames):
         interpolated_qpos = squat_qpos * (1 - t) + standing_qpos * t
@@ -87,8 +100,14 @@ for i in range(40):
         mujoco.mj_step(model, data)
 
         imu_accel, imu_gyro = get_imu_data()
+        dist = get_watch_distance()
+
+        if dist is not None:
+            print(f"Frame {t:.2f}: Distance to watch = {dist:.2f}")
+        else:
+            print(f"Frame {t:.2f}: There is no watch sensor in the model.")
         
-        print(f"Frame {t:.2f}: x = {data.qpos[0]:.2f}, y = {data.qpos[1]:.2f}, z = {data.qpos[2]:.2f}")
+        #print(f"Frame {t:.2f}: x = {data.qpos[0]:.2f}, y = {data.qpos[1]:.2f}, z = {data.qpos[2]:.2f}")
         if imu_accel is not None:
             print(f"Frame {t:.2f}: Accel = {imu_accel}, Gyro = {imu_gyro}")
         else:
@@ -98,6 +117,6 @@ for i in range(40):
         img = renderer.render()
         plt.imshow(img)
         plt.axis("off")
-        plt.pause(0.03)
+        plt.pause(0.005)
 
 plt.show()
