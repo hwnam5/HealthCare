@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import glfw
 #import mujoco_viewer
 import mujoco
+import pandas as pd
+import xml.etree.ElementTree as ET
 
 matplotlib.use("TkAgg")
 plt.ion()
@@ -60,8 +62,20 @@ def get_watch_distance():
     watch_dist = data.sensordata[watch_dist_id]
     return watch_dist
 
+def NLOS2UWB(watch_dist, NLOS_prob = 0.03):
+    watch_distWNoise = watch_dist
+    if np.random.rand() < NLOS_prob:
+        nlos_bias = np.random.uniform(0.2, 0.5)
+        watch_distWNoise += nlos_bias
+        
+    return watch_distWNoise
+
+squat_data4excel = []
+
 for i in range(40):
     for t in np.linspace(0, 1, num_frames):
+        if t==0:
+            start_range = get_watch_distance()
         interpolated_qpos = standing_qpos * (1 - t) + squat_qpos * t
 
         data.qpos[:] = interpolated_qpos
@@ -72,9 +86,10 @@ for i in range(40):
 
         imu_accel, imu_gyro = get_imu_data()
         dist = get_watch_distance()
+        distWNoise = NLOS2UWB(dist)
 
-        if dist is not None:
-            print(f"Frame {t:.2f}: Distance to watch = {dist:.2f}")
+        if distWNoise is not None:
+            print(f"Frame {t:.2f}: Distance to watch = {distWNoise:.2f}")
         else:
             print(f"Frame {t:.2f}: There is no watch sensor in the model.")
 
@@ -83,6 +98,8 @@ for i in range(40):
             print(f"Frame {t:.2f}: Accel = {imu_accel}, Gyro = {imu_gyro}")
         else:
             print(f"Frame {t:.2f}: There is no IMU sensor in the model.")
+        squat_data4excel.append([0, start_range, distWNoise, imu_accel[0], imu_accel[1], 
+                                 imu_accel[2], imu_gyro[0], imu_gyro[1], imu_gyro[2]])
         
         renderer.update_scene(data)
         img = renderer.render()
@@ -101,9 +118,10 @@ for i in range(40):
 
         imu_accel, imu_gyro = get_imu_data()
         dist = get_watch_distance()
+        distWNoise = NLOS2UWB(dist)
 
-        if dist is not None:
-            print(f"Frame {t:.2f}: Distance to watch = {dist:.2f}")
+        if distWNoise is not None:
+            print(f"Frame {t:.2f}: Distance to watch = {distWNoise:.2f}")
         else:
             print(f"Frame {t:.2f}: There is no watch sensor in the model.")
         
@@ -112,6 +130,9 @@ for i in range(40):
             print(f"Frame {t:.2f}: Accel = {imu_accel}, Gyro = {imu_gyro}")
         else:
             print(f"Frame {t:.2f}: There is no IMU sensor in the model.")
+            
+        squat_data4excel.append([1, start_range, distWNoise, imu_accel[0], imu_accel[1], 
+                                 imu_accel[2], imu_gyro[0], imu_gyro[1], imu_gyro[2]])
 
         renderer.update_scene(data)
         img = renderer.render()
@@ -120,3 +141,6 @@ for i in range(40):
         plt.pause(0.005)
 
 plt.show()
+df = pd.DataFrame(squat_data4excel, columns=["updown", "first_range" "UWB", "accel_x", "accel_y",
+                                             "gyro_x", "gyro_y", "gyro_z"])
+df.to_excel("squat_data_temp.xlsx", index=False)
