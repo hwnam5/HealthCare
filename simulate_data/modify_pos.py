@@ -31,6 +31,7 @@ def get_sensor_id(model, sensor_name):
     for i in range(model.nsensor):
         if model.sensor(i).name == sensor_name:
             return i
+    print("Fail to get sensor id.")
     return None
 def get_imu_data(data, imu_accel_id, imu_gyro_id):
     if imu_accel_id is None or imu_gyro_id is None:
@@ -39,14 +40,14 @@ def get_imu_data(data, imu_accel_id, imu_gyro_id):
     imu_gyro = data.sensordata[imu_gyro_id * 3: imu_gyro_id * 3 + 3]  # 각속도 (x, y, z)
     return imu_accel, imu_gyro
 
-def imu_accel_noise(bias_drift_before):
-    BIAS_DRIFT_STD = 0.005
+def imu_accel_noise(bias_drift_before, accel_value):
+    BIAS_DRIFT_STD = 0.001 * abs(accel_value)
 
     bias_drift = np.random.normal(0, BIAS_DRIFT_STD, size=3)
     return bias_drift_before + bias_drift
 
-def imu_gyro_noise(bias_drift_before):
-    BIAS_DRIFT_STD = 0.0005
+def imu_gyro_noise(bias_drift_before, gyro_value):
+    BIAS_DRIFT_STD = 0.0005 * abs(gyro_value)
 
     bias_drift = np.random.normal(0, BIAS_DRIFT_STD, size=3)
     return bias_drift_before + bias_drift
@@ -60,10 +61,10 @@ def get_distance(data, watch_position_id, phone_position_id):
 
 
 def NLOS2UWB(watch_dist, NLOS_prob=0.03):
-        UWB_NOISE_STD = 0.05
+        UWB_NOISE_STD = 0.05 * abs(watch_dist)
         if watch_dist is None:
             return None
-        if np.random.uniform(0.00, 1.00) < NLOS_prob:
+        if np.random.uniform(0.00, 1.00) <= NLOS_prob:
             watch_dist += np.random.uniform(0.2, 0.5)
         watch_dist += np.random.normal(0, UWB_NOISE_STD)
         return watch_dist
@@ -76,7 +77,7 @@ def run_simulation(people_id, xml_path, squat_data4excel, num_repeats=1, num_fra
 
     model = mujoco.MjModel.from_xml_path(xml_path)
     data = mujoco.MjData(model)
-    renderer = mujoco.Renderer(model, 1280, 1280)
+    #renderer = mujoco.Renderer(model, 1280, 1280)
 
     standing_qpos = np.array([
         0, 0, 1.25,  # torso 위치
@@ -115,11 +116,12 @@ def run_simulation(people_id, xml_path, squat_data4excel, num_repeats=1, num_fra
             if t == 0.0 and j == 0:
                 start_range = get_distance(data, watch_position_id, phone_position_id)
             imu_accel, imu_gyro = get_imu_data(data, imu_accel_id, imu_gyro_id)
-            bias_drift_accel = imu_accel_noise(bias_drift_accel)
-            bias_drift_gyro = imu_gyro_noise(bias_drift_gyro)
-            imu_accel = imu_accel + bias_drift_accel + np.random.normal(0, ACCEL_NOISE_STD, size=3)
-            imu_gyro = imu_gyro + bias_drift_gyro + np.random.normal(0, GYRO_NOISE_STD, size=3)
+            bias_drift_accel = imu_accel_noise(bias_drift_accel, imu_accel)
+            bias_drift_gyro = imu_gyro_noise(bias_drift_gyro, imu_gyro)
+            imu_accel = imu_accel + bias_drift_accel + np.random.normal(0, ACCEL_NOISE_STD * abs(imu_accel), size=3)
+            imu_gyro = imu_gyro + bias_drift_gyro + np.random.normal(0, GYRO_NOISE_STD * abs(imu_gyro), size=3)
             dist = get_distance(data, watch_position_id, phone_position_id)
+            #print(dist)
             distWNoise = NLOS2UWB(dist)
 
             squat_data4excel.append([people_id, 0, start_range, distWNoise, imu_accel[0], imu_accel[1], 
@@ -139,10 +141,10 @@ def run_simulation(people_id, xml_path, squat_data4excel, num_repeats=1, num_fra
             mujoco.mj_forward(model, data)
 
             imu_accel, imu_gyro = get_imu_data(data, imu_accel_id, imu_gyro_id)
-            bias_drift_accel = imu_accel_noise(bias_drift_accel)
-            bias_drift_gyro = imu_gyro_noise(bias_drift_gyro)
-            imu_accel = imu_accel + bias_drift_accel + np.random.normal(0, ACCEL_NOISE_STD, size=3)
-            imu_gyro = imu_gyro + bias_drift_gyro + np.random.normal(0, GYRO_NOISE_STD, size=3)
+            bias_drift_accel = imu_accel_noise(bias_drift_accel, imu_accel)
+            bias_drift_gyro = imu_gyro_noise(bias_drift_gyro, imu_gyro)
+            imu_accel = imu_accel + bias_drift_accel + np.random.normal(0, ACCEL_NOISE_STD * abs(imu_accel), size=3)
+            imu_gyro = imu_gyro + bias_drift_gyro + np.random.normal(0, GYRO_NOISE_STD * abs(imu_gyro), size=3)
             dist = get_distance(data, watch_position_id, phone_position_id)
             distWNoise = NLOS2UWB(dist)
 

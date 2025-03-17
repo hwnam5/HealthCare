@@ -186,15 +186,15 @@
 
     <body name="phone" pos="1 0.5 0.5">
       <geom name="phone" type="box" size="0.05 0.1 0.005" rgba="1 0 0 1"/>
+      <site name="phone_site" pos="0 0 0.01" size="0.02" type="sphere" rgba="1 0 0 1"/>
     </body>
 
   </worldbody>
   <sensor>
     <accelerometer name="imu_acc" site="imu_site"/>
     <gyro name = "imu_gyro" site="imu_site"/>
-  </sensor>
-  <sensor>
-    <distance name="distance_to_watch" geom1="hand_right" geom2="phone"/>
+    <framepos name="watch_position" objtype="site" objname="imu_site"/>
+    <framepos name="phone_position" objtype="site" objname="phone_site"/>
   </sensor>
   <contact>
     <exclude body1="waist_lower" body2="thigh_right"/>
